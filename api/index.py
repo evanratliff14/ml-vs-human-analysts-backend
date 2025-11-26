@@ -60,10 +60,6 @@ def fetch_data():
     Returns paginated parquet data as records with total/offset/limit/has_more.
     """
 
-    if pd is None:
-        logger.error("pandas not installed or failed to import")
-        return json_error("Server error: pandas not available", 500)
-
     data = require_json()
     position = validate_position(data.get("position"))
     if not position:
