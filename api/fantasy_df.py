@@ -1,8 +1,6 @@
 import pandas as pd
 import nflreadpy as nfl
 import numpy as np
-import pickle
-from datetime import datetime
 import pyarrow
 import logging
 import gc

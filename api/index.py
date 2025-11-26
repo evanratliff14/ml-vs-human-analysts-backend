@@ -2,15 +2,15 @@ import re
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+import pandas as pd 
+
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-import pandas as pd 
 
 # App setup
 app = Flask(__name__)
 CORS(app)
-print("hello world")
 
 # Config
 BASE_DIR = Path(__file__).resolve().parent
@@ -48,7 +48,7 @@ def read_text_file(path: Path) -> str:
 
 
 # ---------- Routes ----------
-@app.route("/fetch_data", methods=["POST", "OPTIONS"])
+@app.route("/fetch_data", methods=["POST", "OPTIONS"], endpoint = "fetch_data_endpoint")
 def fetch_data():
     """
     Expects JSON:
@@ -107,7 +107,7 @@ def fetch_data():
     })
 
 
-@app.route("/get_error", methods=["POST", "OPTIONS"])
+@app.route("/get_error", methods=["POST", "OPTIONS"], endpoint = "get_error_endpoint")
 def get_error():
     """
     Expects JSON:
@@ -132,7 +132,7 @@ def get_error():
         return json_error(f"Error reading error file: {str(e)}", 500)
 
 
-@app.route("/get_features", methods=["POST", "OPTIONS"])
+@app.route("/get_features", methods=["POST", "OPTIONS"], endpoint = "get_features_endpoint")
 def get_features():
     """
     Expects JSON:
@@ -158,7 +158,7 @@ def get_features():
         return json_error(f"Error reading features file: {str(e)}", 500)
 
 
-@app.route("/get_perm_importance", methods=["POST", "OPTIONS"])
+@app.route("/get_perm_importance", methods=["POST", "OPTIONS"], endpoint = "get_perm_importance_endpoint")
 def get_perm_importance():
     """
     Expects JSON:
@@ -216,6 +216,6 @@ def get_perm_importance():
 
 
 # Root health-check
-@app.route("/", methods=["GET"])
+@app.route("/", methods=["GET"], endpoint = "root_endpoint")
 def root():
     return jsonify({"status": "ok", "endpoints": ["/fetch_data", "/get_error", "/get_features", "/get_perm_importance"]})
