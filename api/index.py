@@ -10,8 +10,13 @@ from flask_cors import CORS
 
 # App setup
 app = Flask(__name__)
-CORS(app)
-
+CORS(
+    app,
+    resources={r"/*": {"origins": "https://ml-vs-human-analysts.vercel.app/, http://localhost:3000/"}},
+    supports_credentials=True,
+    methods=["GET","POST","OPTIONS"],
+    allow_headers=["Content-Type","Authorization"]
+)
 # Config
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"

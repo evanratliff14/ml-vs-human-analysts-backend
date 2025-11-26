@@ -1,13 +1,13 @@
 ## UNCOMMENTED LINES ARE FOR VERCEL USE. TO USE, UNCOMMMENT, THEN pip install -r requirements.txt
 
 numpy
-scikit-learn
-jupyter
+# scikit-learn
+# jupyter
 nflreadpy
 pandas
-pyarrow
-seaborn
-matplotlib
-joblib
+# pyarrow
+# seaborn
+# matplotlib
+# joblib
 flask
 flask-cors
