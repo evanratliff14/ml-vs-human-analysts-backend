@@ -1,15 +1,11 @@
-from audioop import cross
 import re
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from flask_cors.decorator import cross_origin
-
 from flask import Flask, jsonify, request
-from flask_cors import CORS
 import pandas as pd 
-from serverless_wsgi import handle_request
 
 # App setup
 app = Flask(__name__)
@@ -51,7 +47,7 @@ def read_text_file(path: Path) -> str:
 
 
 # ---------- Routes ----------
-@app.route("/api/fetch_data", methods=["POST", "OPTIONS"])
+@app.route("/fetch_data", methods=["POST", "OPTIONS"])
 @cross_origin
 def fetch_data():
     """
@@ -115,7 +111,7 @@ def fetch_data():
     })
 
 
-@app.route("/api/get_error", methods=["POST", "OPTIONS"])
+@app.route("/get_error", methods=["POST", "OPTIONS"])
 @cross_origin
 def get_error():
     """
@@ -141,7 +137,7 @@ def get_error():
         return json_error(f"Error reading error file: {str(e)}", 500)
 
 
-@app.route("/api/get_features", methods=["POST", "OPTIONS"])
+@app.route("/get_features", methods=["POST", "OPTIONS"])
 @cross_origin
 def get_features():
     """
@@ -168,7 +164,7 @@ def get_features():
         return json_error(f"Error reading features file: {str(e)}", 500)
 
 
-@app.route("/api/get_perm_importance", methods=["POST", "OPTIONS"])
+@app.route("/get_perm_importance", methods=["POST", "OPTIONS"])
 @cross_origin
 def get_perm_importance():
     """
@@ -227,7 +223,7 @@ def get_perm_importance():
 
 
 # Root health-check
-@app.route("/api/", methods=["GET"])
+@app.route("/", methods=["GET"])
 @cross_origin
 def root():
     return jsonify({"status": "ok", "endpoints": ["/fetch_data", "/get_error", "/get_features", "/get_perm_importance"]})

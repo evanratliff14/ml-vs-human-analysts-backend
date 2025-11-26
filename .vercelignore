@@ -3,5 +3,6 @@ data.parquet
 fantasy_df.py
 model_executor.py
 model.py
+seasonal.py
 
 # only expose index.py
