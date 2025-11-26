@@ -6,3 +6,4 @@ current_data.csv
 *.joblib
 nfl-win-totals-2022.csv
 cache/
+.vercel
