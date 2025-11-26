@@ -1,0 +1,12 @@
+pandas
+numpy
+scikit-learn
+jupyter
+nflreadpy
+pandas
+pyarrow
+seaborn
+matplotlib
+joblib
+flask
+flask-cors

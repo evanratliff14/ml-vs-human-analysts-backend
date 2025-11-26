@@ -1,0 +1,8 @@
+venv/
+.vercel/
+__pycache__/
+players_stats.csv
+current_data.csv
+*.joblib
+nfl-win-totals-2022.csv
+cache/
