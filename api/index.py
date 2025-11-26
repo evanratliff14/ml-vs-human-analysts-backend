@@ -3,12 +3,13 @@ import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from flask_cors.decorator import cross_origin
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 import pandas as pd 
 
 # App setup
 app = Flask(__name__)
+CORS(app)
 print("hello world")
 
 # Config
@@ -48,7 +49,6 @@ def read_text_file(path: Path) -> str:
 
 # ---------- Routes ----------
 @app.route("/fetch_data", methods=["POST", "OPTIONS"])
-@cross_origin
 def fetch_data():
     """
     Expects JSON:
@@ -108,7 +108,6 @@ def fetch_data():
 
 
 @app.route("/get_error", methods=["POST", "OPTIONS"])
-@cross_origin
 def get_error():
     """
     Expects JSON:
@@ -134,7 +133,6 @@ def get_error():
 
 
 @app.route("/get_features", methods=["POST", "OPTIONS"])
-@cross_origin
 def get_features():
     """
     Expects JSON:
@@ -161,7 +159,6 @@ def get_features():
 
 
 @app.route("/get_perm_importance", methods=["POST", "OPTIONS"])
-@cross_origin
 def get_perm_importance():
     """
     Expects JSON:
@@ -220,6 +217,5 @@ def get_perm_importance():
 
 # Root health-check
 @app.route("/", methods=["GET"])
-@cross_origin
 def root():
     return jsonify({"status": "ok", "endpoints": ["/fetch_data", "/get_error", "/get_features", "/get_perm_importance"]})
