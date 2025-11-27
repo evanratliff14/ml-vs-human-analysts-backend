@@ -4,21 +4,14 @@ season
 games
 completions
 attempts
-passing_yards
-passing_tds
 passing_interceptions
 sacks_suffered
-passing_air_yards
 passing_yards_after_catch
 passing_first_downs
-passing_2pt_conversions
 carries
 rushing_yards
 rushing_tds
 receptions
-air_yards_share
-wopr
-fantasy_points_half_ppr
 total_missed_games
 pass_tds/game
 pass_air_yards/game
@@ -38,7 +31,6 @@ turnovers/game_team_qbs_mean
 carries/game_team_qbs_mean
 completion_percentage_above_expectation_team_qbs_mean
 passing_epa_team_qbs_mean
-num_team_qbs
 receiving_tds_team_wrs_sum
 air_yards_share_team_wrs_sum
 avg_cushion_team_wrs_mean
@@ -56,7 +48,6 @@ years_exp_team_rbs_mean
 age_team_rbs_mean
 weight_team_rbs_mean
 percent_attempts_gte_eight_defenders_team_rbs_mean
-avg_time_to_los_team_rbs_mean
 rush_yards_over_expected_per_att_team_rbs_mean
 rush_pct_over_expected_team_rbs_mean
 receiving_epa_team_rbs_mean
@@ -70,7 +61,6 @@ catch_percentage_team_tes_mean
 wopr_team_tes_mean
 percent_share_of_intended_air_yards_team_tes_mean
 receiving_epa_team_tes_mean
-num_team_tes
 rushing_tds_other_team_qbs
 aggressiveness_other_team_qbs
 pick_other_team_qbs

@@ -115,10 +115,10 @@ class Seasonal(Model):
         # n_iter_no_change, validation fraction focus on early stopping (validation fraction only used is n is integer)
         type = self.type
         if type == 'xgb':
-            self.model = GradientBoostingRegressor(loss='squared_error', learning_rate=0.1, n_estimators=350,
+            self.model = GradientBoostingRegressor(loss='squared_error', learning_rate=0.1, n_estimators=500, subsample = 0.95,
                 criterion='friedman_mse', min_samples_split=250, min_samples_leaf=1, min_weight_fraction_leaf=0.0,
-                max_depth=7, min_impurity_decrease=64.0, init=None, random_state=42, max_features=35, alpha=0.9, 
-                verbose=0, max_leaf_nodes=128, warm_start=False, validation_fraction=0.1, n_iter_no_change=None,
+                max_depth=7, min_impurity_decrease=64.0, init=None, random_state=42, max_features=0.95, alpha=0.9, 
+                verbose=0, max_leaf_nodes=128, warm_start=False, validation_fraction=0.001, n_iter_no_change=None,
                 tol=0.1, ccp_alpha=0.0)
 
     # may pass anything that uses model interface, including sequential feature selector

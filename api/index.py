@@ -53,7 +53,7 @@ def read_text_file(path: Path) -> str:
 
 
 # ---------- Routes ----------
-@app.route("/fetch_data", methods=["POST", "OPTIONS"], endpoint = "fetch_data_endpoint")
+@app.route("/fetch_data", methods=["POST"], endpoint = "fetch_data_endpoint")
 def fetch_data():
     """
     Expects JSON:
@@ -94,7 +94,7 @@ def fetch_data():
         return json_error(f"Data file not found: {parquet_path}", 404)
 
     try:
-        df = pd.read_parquet(parquet_path)
+        df = pd.read_parquet(parquet_path, engine="fastparquet")
     except Exception as e:
         logger.exception("Failed to read parquet file")
         return json_error(f"Error reading parquet file: {str(e)}", 500)
@@ -112,7 +112,7 @@ def fetch_data():
     })
 
 
-@app.route("/get_error", methods=["POST", "OPTIONS"], endpoint = "get_error_endpoint")
+@app.route("/get_error", methods=["POST"], endpoint = "get_error_endpoint")
 def get_error():
     """
     Expects JSON:
@@ -137,7 +137,7 @@ def get_error():
         return json_error(f"Error reading error file: {str(e)}", 500)
 
 
-@app.route("/get_features", methods=["POST", "OPTIONS"], endpoint = "get_features_endpoint")
+@app.route("/get_features", methods=["POST"], endpoint = "get_features_endpoint")
 def get_features():
     """
     Expects JSON:
@@ -163,7 +163,7 @@ def get_features():
         return json_error(f"Error reading features file: {str(e)}", 500)
 
 
-@app.route("/get_perm_importance", methods=["POST", "OPTIONS"], endpoint = "get_perm_importance_endpoint")
+@app.route("/get_perm_importance", methods=["POST"], endpoint = "get_perm_importance_endpoint")
 def get_perm_importance():
     """
     Expects JSON:

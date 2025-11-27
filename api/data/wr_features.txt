@@ -18,7 +18,6 @@ receiving_first_downs
 target_share
 air_yards_share
 wopr
-fantasy_points_half_ppr
 total_missed_games
 carries/game
 rushing_tds/game
@@ -42,7 +41,6 @@ avg_cushion_team_wrs_mean
 avg_separation_team_wrs_mean
 avg_yac_above_expectation_team_wrs_mean
 catch_percentage_team_wrs_mean
-height_team_wrs_mean
 receiving_epa_team_wrs_mean
 pick_team_wrs_mean
 receiving_tds_team_rbs_sum
@@ -90,7 +88,6 @@ air_yards_share_other_team_rbs
 years_exp_other_team_rbs
 age_other_team_rbs
 weight_other_team_rbs
-percent_attempts_gte_eight_defenders_other_team_rbs
 avg_time_to_los_other_team_rbs
 receiving_epa_other_team_rbs
 rushing_epa_other_team_rbs

@@ -16,7 +16,6 @@ receiving_first_downs
 target_share
 air_yards_share
 wopr
-fantasy_points_half_ppr
 total_missed_games
 carries/game
 rushing_tds/game
@@ -44,7 +43,6 @@ catch_percentage_team_wrs_mean
 height_team_wrs_mean
 receiving_epa_team_wrs_mean
 pick_team_wrs_mean
-num_team_wrs
 receiving_tds_team_rbs_sum
 carries_team_rbs_sum
 receiving_yards_team_rbs_sum
