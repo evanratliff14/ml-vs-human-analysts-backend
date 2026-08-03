@@ -34,6 +34,7 @@ class Seasonal(Model):
         
 
         train_test_data, eval= train_test_data.loc[train_test_data['position'] == position], eval.loc[eval['position'] == position]
+        train_test_data[['total_missed_games', 'games']], eval[['total_missed_games', 'games']] = train_test_data[['total_missed_games', 'games']].astype(float), eval[['total_missed_games', 'games']].astype(float)
 
 
         mask = train_test_data['season'] < nfl.get_current_season()-2
@@ -120,6 +121,9 @@ class Seasonal(Model):
                 max_depth=7, min_impurity_decrease=64.0, init=None, random_state=42, max_features=0.95, alpha=0.9, 
                 verbose=0, max_leaf_nodes=128, warm_start=False, validation_fraction=0.001, n_iter_no_change=None,
                 tol=0.1, ccp_alpha=0.0)
+
+        #subsample and max_features set to introduce small amount of bias to each tree
+        #high samples split and impury decrease seems to be working
 
     # may pass anything that uses model interface, including sequential feature selector
     def train_model(self, model, features = None):
@@ -239,7 +243,7 @@ class Seasonal(Model):
         model_string += "Test MSE: " + str(self.test_mse) + "\n"
         model_string += "Test MAE: " + str(self.test_mae) + "\n"
         model_string += "Train MSE: " + str(self.train_mse) + "\n"
-        model_string += "Test MAE: " + str(self.train_mae) + "\n"
+        model_string += "Train MAE: " + str(self.train_mae) + "\n"
         model_string += "Eval MSE: " + str(self.eval_mse) + "\n"
         model_string += "Eval MAE: " + str(self.eval_mae) + "\n"
         

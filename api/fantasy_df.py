@@ -201,7 +201,7 @@ class FantasyDataFrame:
         # will assign win totals based on team column (might need heavy mapping w dicts)
         #https://www.nfeloapp.com/nfl-power-ratings/nfl-win-totals/
         logging.info("Importing Vegas Win Total Lines...")
-        win_totals = pd.read_csv('nfl-win-totals-2025.csv')[['Season','Team','Adj. Total']]
+        win_totals = pd.read_csv('nfl-win-totals-2026.csv')[['Season','Team','Adj. Total']]
         win_totals['Season'] = win_totals['Season'].astype('int')
         win_totals['Team'] = win_totals['Team'].astype('str')
         win_totals['Adj. Total'] = win_totals['Adj. Total'].astype('float')
