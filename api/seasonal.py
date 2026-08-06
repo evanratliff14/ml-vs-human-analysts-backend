@@ -19,9 +19,9 @@ from sklearn.inspection import permutation_importance
 
 
 class Seasonal(Model):
-    def __init__(self, points_type, position, type = 'xgb'):
+    def __init__(self, points_type, position, cur_season, type = 'xgb'):
         logging.info("Initializing...")
-        super().__init__(points_type)
+        super().__init__(points_type, cur_season= cur_season)
         self.type = type
         self.position = position
 
@@ -37,7 +37,7 @@ class Seasonal(Model):
         train_test_data[['total_missed_games', 'games']], eval[['total_missed_games', 'games']] = train_test_data[['total_missed_games', 'games']].astype(float), eval[['total_missed_games', 'games']].astype(float)
 
 
-        mask = train_test_data['season'] < nfl.get_current_season()-2
+        mask = train_test_data['season'] < self.cur_season-2
         train = train_test_data.loc[mask]
         test = train_test_data.loc[~mask]
         X_train, X_test = train[features], test[features]
@@ -172,35 +172,24 @@ class Seasonal(Model):
     def __str__(self):
         return super().__str__()
         
+    def _top_n_metrics(self, df, n=100):
+        """Score top-n predicted rows that still have ground-truth labels."""
+        scored = df.dropna(subset=[self.label]).sort_values(
+            by='predictions', ascending=False, kind='stable'
+        ).iloc[0:n]
+        if scored.empty:
+            return float('nan'), float('nan')
+        return (
+            mean_squared_error(scored['predictions'], scored[self.label]),
+            mean_absolute_error(scored['predictions'], scored[self.label]),
+        )
+
     def cross_validate(self):
         try:
-            self.test.sort_values(
-            by='predictions',
-            ascending = False,
-            inplace=False,
-            kind = 'stable'
-              # descending predictions, ascending season
-            )     
-            self.train.sort_values(
-            by='predictions',
-            ascending = False,
-            inplace=False,
-            kind = 'stable'
-              # descending predictions, ascending season
-            )     
-            self.eval.sort_values(
-            by='predictions',
-            ascending = False,
-            inplace=False,
-            kind = 'stable'
-              # descending predictions, ascending season
-            )     
-            self.test_mse = mean_squared_error(self.test['predictions'].iloc[0:100], self.test[self.label].iloc[0:100])
-            self.test_mae = mean_absolute_error(self.test['predictions'].iloc[0:100],self.test[self.label].iloc[0:100])
-            self.train_mse = mean_squared_error(self.train['predictions'].iloc[0:100],self.train[self.label].iloc[0:100])
-            self.train_mae = mean_absolute_error(self.train['predictions'].iloc[0:100],self.train[self.label].iloc[0:100])
-            self.eval_mse = mean_squared_error(self.eval['predictions'].iloc[0:100],self.eval[self.label].iloc[0:100])
-            self.eval_mae = mean_absolute_error(self.eval['predictions'].iloc[0:100],self.eval[self.label].iloc[0:100])
+            self.test_mse, self.test_mae = self._top_n_metrics(self.test)
+            self.train_mse, self.train_mae = self._top_n_metrics(self.train)
+            # Inference season often has no future labels yet (e.g. cur_season=2025 → predict 2026)
+            self.eval_mse, self.eval_mae = self._top_n_metrics(self.eval)
         except Exception as e:
             print("Error in cross_validate" + str(e))
 
@@ -255,26 +244,26 @@ class Seasonal(Model):
 
         features = [feat for feat in self.features if feat not in self.categorical_identifiers]
 
-        r = permutation_importance(self.model, self.eval[features], self.eval[self.label],
-                                n_repeats=1,
-                                random_state=0,n_jobs=-1)
-        # Pretty print only features that are “significant” by your chosen threshold
-        print("Eval permutation importance")
-        sorted_idx = r.importances_mean.argsort()[::-1]
-
-        for i in sorted_idx:
-            mean = r.importances_mean[i]
-            std = r.importances_std[i]
-            # heuristic: mean is reliably > 0 (2-sigma rule); adjust multiplier if you want
-            if mean - 2 * std > 0:
-                print(f"{features[i]:<30} {mean:.4f} +/- {std:.4f}")
+        eval_scored = self.eval.dropna(subset=[self.label])
+        if not eval_scored.empty:
+            r = permutation_importance(self.model, eval_scored[features], eval_scored[self.label],
+                                    n_repeats=1,
+                                    random_state=0, n_jobs=-1)
+            print("Eval permutation importance")
+            sorted_idx = r.importances_mean.argsort()[::-1]
+            for i in sorted_idx:
+                mean = r.importances_mean[i]
+                std = r.importances_std[i]
+                if mean - 2 * std > 0:
+                    print(f"{features[i]:<30} {mean:.4f} +/- {std:.4f}")
+        else:
+            print("Eval permutation importance skipped (no future labels for inference season)")
 
         s = permutation_importance(self.model, self.test[features], self.test[self.label],
                                 n_repeats=1,
-                                random_state=0,n_jobs=-1)
+                                random_state=0, n_jobs=-1)
 
-        # Pretty print only features that are “significant” by your chosen threshold
-        sorted_idx = r.importances_mean.argsort()[::-1]
+        sorted_idx = s.importances_mean.argsort()[::-1]
         print("Test permutation importance")
         with open(f'data/{self.position}_perm_importance.txt', 'w') as file:
             for i in sorted_idx:

@@ -3,19 +3,46 @@ from seasonal import Seasonal
 import logging
 import pyarrow
 import os
+import argparse
+import pandas as pd
+
+import nflreadpy as nfl
 
 class ModelExecutor:
-    def __init__(self):
-        if not os.path.isfile('data/data.parquet'):
-            fdf = FantasyDataFrame()
+    def __init__(self, cur_season):
+        self.cur_season = cur_season
+        parquet_path = 'data/data.parquet'
+        needs_rebuild = not os.path.isfile(parquet_path)
+        if not needs_rebuild:
+            existing = pd.read_parquet(
+                parquet_path, columns=['season', 'games', 'player_id', 'position']
+            )
+            max_season = int(existing['season'].max())
+            # Rebuild if parquet does not include the inference season
+            needs_rebuild = max_season < cur_season
+            if not needs_rebuild:
+                cur = existing.loc[existing['season'] == cur_season]
+                # Stale builds used offseason week=22 as games and/or appended sparse weekly dupes
+                stale_games = (not cur.empty) and (cur['games'].median() > 18)
+                stale_dupes = (not cur.empty) and cur.duplicated(
+                    subset=['player_id', 'position']
+                ).any()
+                needs_rebuild = stale_games or stale_dupes
+            if needs_rebuild:
+                logging.info(
+                    f"Rebuilding data.parquet (max_season={max_season}, cur_season={cur_season})"
+                )
+
+        if needs_rebuild:
+            fdf = FantasyDataFrame(cur_season=cur_season)
             self.fdf = fdf
             logging.info("Creating parquet...")
-            fdf.players_stats.to_parquet('data/data.parquet', index=False)
-        
-        self.rb_seasonal = Seasonal(points_type='ppr', position = 'RB', type = 'xgb')
-        self.qb_seasonal = Seasonal(points_type='ppr', position = 'QB', type = 'xgb')
-        self.te_seasonal = Seasonal(points_type='ppr', position = 'TE', type = 'xgb')
-        self.wr_seasonal = Seasonal(points_type='ppr', position = 'WR', type = 'xgb')
+            fdf.players_stats.to_parquet(parquet_path, index=False)
+
+        self.rb_seasonal = Seasonal(points_type='ppr', position = 'RB', type = 'xgb', cur_season = cur_season)
+        self.qb_seasonal = Seasonal(points_type='ppr', position = 'QB', type = 'xgb', cur_season = cur_season)
+        self.te_seasonal = Seasonal(points_type='ppr', position = 'TE', type = 'xgb', cur_season = cur_season)
+        self.wr_seasonal = Seasonal(points_type='ppr', position = 'WR', type = 'xgb', cur_season = cur_season)
 
 
     def run(self):
@@ -63,5 +90,10 @@ class ModelExecutor:
         print(wr_seasonal)
         print(qb_seasonal)
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--current_season", type=int, default=nfl.get_current_season())
+    args = parser.parse_args()
+
+
     logging.basicConfig(level=logging.INFO)
-    ModelExecutor().run()
+    ModelExecutor(args.current_season).run()

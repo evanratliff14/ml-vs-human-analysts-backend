@@ -7,10 +7,11 @@ import gc
 
 
 class FantasyDataFrame:
-    def __init__(self, summary_level = 'reg'):
+    def __init__(self, summary_level = 'reg', cur_season = 2026):
         logging.info('Initializing...')
         # normalize to football year season
-        years = [year for year in range(2016, nfl.get_current_season()+1)]
+        years = [year for year in range(2016, cur_season+1)]
+        self.cur_season = cur_season
         self.years = years
         self.pos = ['TE', 'RB', 'WR', 'QB']
         self.summary_level = summary_level
@@ -30,26 +31,38 @@ class FantasyDataFrame:
         players_stats = self.players_stats
         logging.info(f"Number of rows: {players_stats.shape[0]}")
 
-        # create stats for 2025 based on current weekly stats
-        players_weekly_stats = nfl.load_player_stats(nfl.get_current_season(), 'week').to_pandas()
-        players_weekly_stats = players_weekly_stats.loc[players_weekly_stats['week']<=18]
+        # Mid-season only: seasonal rollups may be incomplete, so backfill cur_season from weekly.
+        # Do not append when cur_season is already present in seasonal data — that creates sparse duplicate rows.
+        current_week = nfl.get_current_week()
+        season_already_loaded = self.cur_season in set(players_stats['season'].dropna().unique())
+        in_season = 1 <= current_week <= 18
+        if in_season and not season_already_loaded:
+            players_weekly_stats = nfl.load_player_stats(self.cur_season, 'week').to_pandas()
+            players_weekly_stats = players_weekly_stats.loc[players_weekly_stats['week'] <= 18]
 
-        # build flexible mechanism for aggregating but preserving all other columns as well using first
-        agg_dict = {col: 'first' for col in players_weekly_stats.columns}
-        agg_dict.update({
-            'fantasy_points_ppr': 'sum',
-            'receptions': 'sum'
-        })
-        players_weekly_stats= players_weekly_stats.groupby(['player_id'], as_index=False).agg(agg_dict)
+            agg_dict = {col: 'first' for col in players_weekly_stats.columns}
+            agg_dict.update({
+                'fantasy_points_ppr': 'sum',
+                'receptions': 'sum'
+            })
+            players_weekly_stats = players_weekly_stats.groupby(['player_id'], as_index=False).agg(agg_dict)
 
-        players_weekly_stats['fantasy_points_half_ppr'] = players_weekly_stats['fantasy_points_ppr']-players_weekly_stats['receptions']*0.5
-        players_weekly_stats['fantasy_points_standard'] = players_weekly_stats['fantasy_points_ppr']-players_weekly_stats['receptions']*1
-        players_weekly_stats['season'] = nfl.get_current_season()
-        players_weekly_stats.drop_duplicates(subset= ['season', 'player_id'])
-        logging.info(list(players_weekly_stats.columns))
+            players_weekly_stats['fantasy_points_half_ppr'] = players_weekly_stats['fantasy_points_ppr'] - players_weekly_stats['receptions'] * 0.5
+            players_weekly_stats['fantasy_points_standard'] = players_weekly_stats['fantasy_points_ppr'] - players_weekly_stats['receptions'] * 1
+            players_weekly_stats['season'] = self.cur_season
+            players_weekly_stats = players_weekly_stats.drop_duplicates(subset=['season', 'player_id'])
+            logging.info(list(players_weekly_stats.columns))
 
-        players_stats = pd.concat([players_stats, players_weekly_stats[['player_id', 'season', 'fantasy_points_half_ppr', 'fantasy_points_ppr', 'fantasy_points_standard', 'player_name', 'position', 'headshot_url']]], ignore_index=True, sort=False)
-
+            players_stats = pd.concat(
+                [players_stats, players_weekly_stats[['player_id', 'season', 'fantasy_points_half_ppr', 'fantasy_points_ppr', 'fantasy_points_standard', 'player_name', 'position', 'headshot_url']]],
+                ignore_index=True,
+                sort=False,
+            )
+        else:
+            logging.info(
+                f"Skipping weekly overlay for {self.cur_season} "
+                f"(in_season={in_season}, season_already_loaded={season_already_loaded})"
+            )
 
         players_stats['fantasy_points_standard'] = players_stats['fantasy_points_ppr']-(players_stats['receptions']*1)
         players_stats['fantasy_points_half_ppr'] = players_stats['fantasy_points_ppr']-(players_stats['receptions']*0.5)
@@ -81,24 +94,27 @@ class FantasyDataFrame:
         # Fill NaN with 0 and convert to int
         players_stats['total_missed_games'] = players_stats['total_missed_games'].fillna(0).astype(int)
 
-        # for now this is at constant 0
-        current_season = nfl.get_current_season()
+        # Completed seasons: 17 games (2021+) / 16 games (pre-2021).
+        # In-progress cur_season only: use current week so per-game rates stay sane.
+        current_season = self.cur_season
         current_week = nfl.get_current_week()
+        cur_season_games = current_week if 1 <= current_week <= 18 else 17
         players_stats['games'] = np.select(
-        [
-            players_stats['season'] == current_season,
-            players_stats['season'].between(2021, current_season - 1),
-            players_stats['season'] < 2021
-        ],
-        [
-            current_week,
-            17,
-            16
-        ],
-        default=17
-)
-        
+            [
+                players_stats['season'] == current_season,
+                players_stats['season'].between(2021, current_season - 1),
+                players_stats['season'] < 2021,
+            ],
+            [
+                cur_season_games,
+                17,
+                16,
+            ],
+            default=17,
+        )
+
         players_stats['games'] = players_stats['games'] - players_stats['total_missed_games']
+        players_stats['games'] = players_stats['games'].clip(lower=1)
 
 
         logging.info("Importing Next Gen Stats...")
