@@ -36,28 +36,53 @@ class FantasyDataFrame:
         current_week = nfl.get_current_week()
         season_already_loaded = self.cur_season in set(players_stats['season'].dropna().unique())
         in_season = 1 <= current_week <= 18
+        # #region agent log
+        try:
+            import json, time
+            cur_miss = {}
+            if self.cur_season in set(players_stats['season'].dropna().unique()):
+                cur = players_stats.loc[players_stats['season']==self.cur_season]
+                for c in ['carries','targets','receptions','rushing_yards','fantasy_points_ppr']:
+                    if c in cur.columns:
+                        cur_miss[c] = float(cur[c].isna().mean())
+            open("/Users/evanratliff/Documents/nfl-project/ml-vs-human-analysts-backend/.cursor/debug-9fea92.log","a").write(json.dumps({"sessionId":"9fea92","runId":"post-fix","hypothesisId":"A","location":"fantasy_df.py:overlay_gate","message":"weekly overlay gate","data":{"cur_season":int(self.cur_season),"current_week":int(current_week),"in_season":bool(in_season),"season_already_loaded":bool(season_already_loaded),"will_overlay":bool(in_season and not season_already_loaded),"pre_overlay_cur_missing":cur_miss,"pre_overlay_ncols":int(players_stats.shape[1]),"pre_overlay_nrows":int(players_stats.shape[0])},"timestamp":int(time.time()*1000)})+"\n")
+        except Exception:
+            pass
+        # #endregion
         if in_season and not season_already_loaded:
             players_weekly_stats = nfl.load_player_stats(self.cur_season, 'week').to_pandas()
             players_weekly_stats = players_weekly_stats.loc[players_weekly_stats['week'] <= 18]
 
+            skip_sum = {'week', 'season'}
+            numeric_cols = players_weekly_stats.select_dtypes(include=[np.number]).columns
             agg_dict = {col: 'first' for col in players_weekly_stats.columns}
-            agg_dict.update({
-                'fantasy_points_ppr': 'sum',
-                'receptions': 'sum'
-            })
+            agg_dict.update({col: 'sum' for col in numeric_cols if col not in skip_sum})
             players_weekly_stats = players_weekly_stats.groupby(['player_id'], as_index=False).agg(agg_dict)
 
             players_weekly_stats['fantasy_points_half_ppr'] = players_weekly_stats['fantasy_points_ppr'] - players_weekly_stats['receptions'] * 0.5
             players_weekly_stats['fantasy_points_standard'] = players_weekly_stats['fantasy_points_ppr'] - players_weekly_stats['receptions'] * 1
             players_weekly_stats['season'] = self.cur_season
+            if 'recent_team' in players_weekly_stats.columns and (
+                'team' not in players_weekly_stats.columns or players_weekly_stats['team'].isna().all()
+            ):
+                players_weekly_stats['team'] = players_weekly_stats['recent_team']
             players_weekly_stats = players_weekly_stats.drop_duplicates(subset=['season', 'player_id'])
             logging.info(list(players_weekly_stats.columns))
 
             players_stats = pd.concat(
-                [players_stats, players_weekly_stats[['player_id', 'season', 'fantasy_points_half_ppr', 'fantasy_points_ppr', 'fantasy_points_standard', 'player_name', 'position', 'headshot_url']]],
+                [players_stats, players_weekly_stats],
                 ignore_index=True,
                 sort=False,
             )
+            # #region agent log
+            try:
+                import json, time
+                cur = players_stats.loc[players_stats['season']==self.cur_season]
+                miss = {c: float(cur[c].isna().mean()) for c in ['carries','targets','receptions','rushing_yards','fantasy_points_ppr'] if c in cur.columns}
+                open("/Users/evanratliff/Documents/nfl-project/ml-vs-human-analysts-backend/.cursor/debug-9fea92.log","a").write(json.dumps({"sessionId":"9fea92","runId":"post-fix","hypothesisId":"A","location":"fantasy_df.py:after_overlay","message":"current season missingness after sparse weekly concat","data":{"cur_season":int(self.cur_season),"cur_rows":int(len(cur)),"concat_cols":['player_id','season','fantasy_points_half_ppr','fantasy_points_ppr','fantasy_points_standard','player_name','position','headshot_url'],"miss":miss},"timestamp":int(time.time()*1000)})+"\n")
+            except Exception:
+                pass
+            # #endregion
         else:
             logging.info(
                 f"Skipping weekly overlay for {self.cur_season} "
@@ -69,8 +94,7 @@ class FantasyDataFrame:
 
         logging.info('Importing games spent on IR...')
         # track games played and games missed on IR
-        # doesn't load current injuries
-        injuries = nfl.load_injuries(self.years[0:-1])[['gsis_id', 'season', 'week','report_status', 'position']].to_pandas()
+        injuries = nfl.load_injuries(self.years)[['gsis_id', 'season', 'week','report_status', 'position']].to_pandas()
 
         # count games on ir and games played
         print(injuries)
@@ -94,12 +118,12 @@ class FantasyDataFrame:
         # Fill NaN with 0 and convert to int
         players_stats['total_missed_games'] = players_stats['total_missed_games'].fillna(0).astype(int)
 
-        # Completed seasons: 17 games (2021+) / 16 games (pre-2021).
-        # In-progress cur_season only: use current week so per-game rates stay sane.
+        # Prefer nflverse games played. Season-length minus IR made current-season
+        # games a constant (IR often unavailable) and diluted per-game features.
         current_season = self.cur_season
         current_week = nfl.get_current_week()
         cur_season_games = current_week if 1 <= current_week <= 18 else 17
-        players_stats['games'] = np.select(
+        fallback_games = np.select(
             [
                 players_stats['season'] == current_season,
                 players_stats['season'].between(2021, current_season - 1),
@@ -112,8 +136,12 @@ class FantasyDataFrame:
             ],
             default=17,
         )
-
-        players_stats['games'] = players_stats['games'] - players_stats['total_missed_games']
+        fallback_games = pd.Series(fallback_games, index=players_stats.index) - players_stats['total_missed_games']
+        played = pd.to_numeric(players_stats['games'], errors='coerce') if 'games' in players_stats.columns else None
+        if played is not None:
+            players_stats['games'] = played.fillna(fallback_games)
+        else:
+            players_stats['games'] = fallback_games
         players_stats['games'] = players_stats['games'].clip(lower=1)
 
 
@@ -438,7 +466,26 @@ class FantasyDataFrame:
         df['player_name'] = df['player_id'].map(mappings_name_dict)
         df['position'] = df['player_id'].map(mappings_pos_dict)
         df['twitter_username'] = df['player_id'].map(mappings_twitter_dict)
-        df['team'] = df['player_id'].map(mappings_team_dict)
+
+        # Prefer season-specific nflverse team. ff_playerids.team is the *current*
+        # roster (mostly FA for retired players) and would inflate historical team aggs.
+        team_aliases = {
+            'NOS': 'NO', 'NEP': 'NE', 'SFO': 'SF', 'TBB': 'TB', 'KCC': 'KC',
+            'GBP': 'GB', 'LVR': 'LV', 'JAC': 'JAX', 'WSH': 'WAS', 'GNB': 'GB',
+            'NOR': 'NO', 'NWE': 'NE', 'TAM': 'TB', 'KAN': 'KC', 'LAS': 'LV',
+            'OAK': 'LV', 'SD': 'LAC', 'STL': 'LAR',
+        }
+        mapped_team = df['player_id'].map(mappings_team_dict).replace(team_aliases)
+        if 'recent_team' in df.columns:
+            season_team = df['recent_team']
+        elif 'team' in df.columns:
+            season_team = df['team']
+        else:
+            season_team = None
+        if season_team is not None:
+            df['team'] = season_team.replace(team_aliases).fillna(mapped_team)
+        else:
+            df['team'] = mapped_team
 
         # drop unmapped-id players from df (fantasy defenses, other edgecases)
         df.dropna(subset=['position'], inplace=True)

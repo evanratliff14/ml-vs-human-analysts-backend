@@ -28,7 +28,27 @@ class Model:
         fantasy_data = fantasy_data.loc[has_label | is_inference_season].copy()
 
         threshold = 0.3
+        _cols_before = set(fantasy_data.columns)
+        _cur_before = fantasy_data.loc[fantasy_data['season']==cur_season]
+        _key_feats = ['carries','targets','receptions','rushing_yards','half_ppr/game','fantasy_points_half_ppr','games','ppr/game']
+        _miss_before = {c: float(_cur_before[c].isna().mean()) for c in _key_feats if c in _cur_before.columns}
         fantasy_data = fantasy_data.dropna(axis=1, thresh=len(fantasy_data)*threshold)
+        # #region agent log
+        try:
+            import json, time
+            dropped = sorted(_cols_before - set(fantasy_data.columns))
+            cur = fantasy_data.loc[fantasy_data['season']==cur_season]
+            miss_after = {c: float(cur[c].isna().mean()) for c in _key_feats if c in cur.columns}
+            games_vals = cur['games'].value_counts().head(8).to_dict() if 'games' in cur.columns else {}
+            hist = fantasy_data.loc[fantasy_data['season'] < cur_season]
+            fa_cur = float((cur['team']=='FA').mean()) if 'team' in cur.columns and len(cur) else None
+            fa_hist = float((hist['team']=='FA').mean()) if 'team' in hist.columns and len(hist) else None
+            ntr_cur = float(cur['num_team_rbs'].median()) if 'num_team_rbs' in cur.columns and len(cur) else None
+            ntr_hist = float(hist['num_team_rbs'].median()) if 'num_team_rbs' in hist.columns and len(hist) else None
+            open("/Users/evanratliff/Documents/nfl-project/ml-vs-human-analysts-backend/.cursor/debug-9fea92.log","a").write(json.dumps({"sessionId":"9fea92","runId":"post-fix","hypothesisId":"B","location":"model.py:dropna_cols","message":"column dropna and current-season missingness","data":{"cur_season":int(cur_season),"n_dropped":len(dropped),"dropped_sample":dropped[:25],"miss_before":_miss_before,"miss_after":miss_after,"cur_rows":int(len(cur)),"games_nunique":int(cur['games'].nunique()) if 'games' in cur.columns else None,"games_median":float(cur['games'].median()) if 'games' in cur.columns and len(cur) else None,"games_vals":{str(k):int(v) for k,v in games_vals.items()},"label_nonnull_cur":int(cur[self.label].notna().sum()) if self.label in cur.columns else None,"fa_share_cur":fa_cur,"fa_share_hist":fa_hist,"num_team_rbs_cur_median":ntr_cur,"num_team_rbs_hist_median":ntr_hist},"timestamp":int(time.time()*1000)})+"\n")
+        except Exception:
+            pass
+        # #endregion
 
         #refactor for categorical features
         features = [feat for feat in list(fantasy_data.columns) if (pd.api.types.is_numeric_dtype(fantasy_data[feat]) or feat in self.categorical_identifiers)]

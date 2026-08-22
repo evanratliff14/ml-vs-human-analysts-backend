@@ -50,13 +50,34 @@ class Seasonal(Model):
 
         X_eval = eval[features]
         y_eval = eval[self.label]
+        _eval_seasons = eval['season'].value_counts().to_dict() if 'season' in eval.columns else None
 
         # create new dfs for rejoining
         train = pd.DataFrame()
         test = pd.DataFrame()
         eval = pd.DataFrame()
+        numeric = [feat for feat in self.features if feat not in self.categorical_identifiers and feat !=self.label]
+        # #region agent log
+        try:
+            import json, time
+            pre = {}
+            for f in numeric:
+                if f in X_eval.columns:
+                    pre[f] = {"nan": float(X_eval[f].isna().mean()), "std": None if pd.api.types.is_numeric_dtype(X_eval[f]) is False else (None if pd.isna(X_eval[f].std()) else float(X_eval[f].std()))}
+            high_nan = sorted([(k,v["nan"]) for k,v in pre.items() if v["nan"]>0.2], key=lambda x: -x[1])[:15]
+            open("/Users/evanratliff/Documents/nfl-project/ml-vs-human-analysts-backend/.cursor/debug-9fea92.log","a").write(json.dumps({"sessionId":"9fea92","runId":"post-fix","hypothesisId":"C","location":"seasonal.py:pre_impute","message":"eval missingness before imputer","data":{"position":self.position,"n_eval":int(len(X_eval)),"n_numeric":len(numeric),"n_high_nan":len(high_nan),"high_nan":high_nan,"mean_nan_rate":float(sum(v["nan"] for v in pre.values())/max(len(pre),1)),"eval_seasons":{str(k):int(v) for k,v in (_eval_seasons or {}).items()}},"timestamp":int(time.time()*1000)})+"\n")
+        except Exception:
+            pass
+        # #endregion
         
         if os.path.isfile(f'cache/{self.position.lower()}_test.parquet') and os.path.isfile(f'cache/{self.position.lower()}train.parquet') and os.path.isfile(f'cache/{self.position.lower()}_eval.parquet'):
+            # #region agent log
+            try:
+                import json, time
+                open("/Users/evanratliff/Documents/nfl-project/ml-vs-human-analysts-backend/.cursor/debug-9fea92.log","a").write(json.dumps({"sessionId":"9fea92","runId":"post-fix","hypothesisId":"E","location":"seasonal.py:cache_hit","message":"loaded stale cache with fillna0","data":{"position":self.position,"cache_test":f'cache/{self.position.lower()}_test.parquet',"cache_train_checked":f'cache/{self.position.lower()}train.parquet'},"timestamp":int(time.time()*1000)})+"\n")
+            except Exception:
+                pass
+            # #endregion
             train = pd.read_parquet(f'cache/{self.position}_train.parquet').fillna(0, inplace=False, index=False)
             test = pd.read_parquet(f'cache/{self.position}_test.parquet').fillna(0, inplace=False, index=False)
             eval = pd.read_parquet(f'cache/{self.position}_eval.parquet').fillna(0, inplace=False, index=False)
@@ -84,6 +105,22 @@ class Seasonal(Model):
             X_train.loc[:, numeric] = imputer.transform(X_train[numeric])
             X_test.loc[:, numeric]  = imputer.transform(X_test[numeric])
             X_eval.loc[:, numeric] = imputer.transform(X_eval[numeric])
+            # #region agent log
+            try:
+                import json, time
+                collapsed = []
+                for f in numeric:
+                    if f in X_eval.columns and f in X_train.columns and pd.api.types.is_numeric_dtype(X_eval[f]):
+                        ts, es = float(X_train[f].std() or 0), float(X_eval[f].std() or 0)
+                        ratio = (es/ts) if ts else None
+                        if ratio is not None and ratio < 0.15:
+                            collapsed.append((f, round(ts,4), round(es,4), round(ratio,4)))
+                key = [f for f in ['carries','half_ppr/game','fantasy_points_half_ppr','targets','carries/game'] if f in X_eval.columns]
+                key_stats = {f: {"eval_std": float(X_eval[f].std() or 0), "eval_mean": float(X_eval[f].mean() or 0), "eval_nunique": int(X_eval[f].nunique()), "eval_nan": float(X_eval[f].isna().mean())} for f in key}
+                open("/Users/evanratliff/Documents/nfl-project/ml-vs-human-analysts-backend/.cursor/debug-9fea92.log","a").write(json.dumps({"sessionId":"9fea92","runId":"post-fix","hypothesisId":"C","location":"seasonal.py:post_impute","message":"eval variance after imputer","data":{"position":self.position,"n_collapsed_std_ratio_lt_0.15":len(collapsed),"collapsed_sample":collapsed[:20],"key_stats":key_stats},"timestamp":int(time.time()*1000)})+"\n")
+            except Exception:
+                pass
+            # #endregion
 
             # rejoin
             train[list(X_train.columns)] = X_train[list(X_train.columns)]
@@ -151,6 +188,15 @@ class Seasonal(Model):
         self.train['predictions'] = self.model.predict(self.train[features])
         self.test['predictions'] = self.model.predict(self.test[features])
         self.eval['predictions'] = self.model.predict(self.eval[features])
+        # #region agent log
+        try:
+            import json, time
+            p = self.eval['predictions']
+            mean = float(p.mean())
+            open("/Users/evanratliff/Documents/nfl-project/ml-vs-human-analysts-backend/.cursor/debug-9fea92.log","a").write(json.dumps({"sessionId":"9fea92","runId":"post-fix","hypothesisId":"C","location":"seasonal.py:predict","message":"eval prediction distribution","data":{"position":self.position,"n":int(len(p)),"mean":mean,"std":float(p.std() or 0),"min":float(p.min()),"max":float(p.max()),"nunique":int(p.nunique()),"pct_near_mean":float(((p-mean).abs()<=max(0.25,abs(mean)*0.1)).mean())},"timestamp":int(time.time()*1000)})+"\n")
+        except Exception:
+            pass
+        # #endregion
         # self.eval['predictions'] = self.model.predict(self.eval[features])
                 
         stage_errors = []

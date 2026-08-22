@@ -27,12 +27,27 @@ class ModelExecutor:
                 stale_dupes = (not cur.empty) and cur.duplicated(
                     subset=['player_id', 'position']
                 ).any()
-                needs_rebuild = stale_games or stale_dupes
+                # Historical rows tagged with *current* FA team inflate team-sum features
+                stale_fa = False
+                try:
+                    teams = pd.read_parquet(parquet_path, columns=['season', 'team'])
+                    hist = teams.loc[teams['season'] < cur_season]
+                    stale_fa = (not hist.empty) and ((hist['team'] == 'FA').mean() > 0.4)
+                except Exception:
+                    stale_fa = False
+                needs_rebuild = stale_games or stale_dupes or stale_fa
             if needs_rebuild:
                 logging.info(
                     f"Rebuilding data.parquet (max_season={max_season}, cur_season={cur_season})"
                 )
 
+        # #region agent log
+        try:
+            import json, time
+            open("/Users/evanratliff/Documents/nfl-project/ml-vs-human-analysts-backend/.cursor/debug-9fea92.log","a").write(json.dumps({"sessionId":"9fea92","runId":"post-fix","hypothesisId":"A","location":"model_executor.py:rebuild","message":"parquet rebuild decision","data":{"cur_season":int(cur_season),"needs_rebuild":bool(needs_rebuild),"parquet_exists":os.path.isfile(parquet_path)},"timestamp":int(time.time()*1000)})+"\n")
+        except Exception:
+            pass
+        # #endregion
         if needs_rebuild:
             fdf = FantasyDataFrame(cur_season=cur_season)
             self.fdf = fdf
@@ -40,9 +55,9 @@ class ModelExecutor:
             fdf.players_stats.to_parquet(parquet_path, index=False)
 
         self.rb_seasonal = Seasonal(points_type='ppr', position = 'RB', type = 'xgb', cur_season = cur_season)
-        # self.qb_seasonal = Seasonal(points_type='ppr', position = 'QB', type = 'xgb', cur_season = cur_season)
-        # self.te_seasonal = Seasonal(points_type='ppr', position = 'TE', type = 'xgb', cur_season = cur_season)
-        # self.wr_seasonal = Seasonal(points_type='ppr', position = 'WR', type = 'xgb', cur_season = cur_season)
+        self.qb_seasonal = Seasonal(points_type='ppr', position = 'QB', type = 'xgb', cur_season = cur_season)
+        self.te_seasonal = Seasonal(points_type='ppr', position = 'TE', type = 'xgb', cur_season = cur_season)
+        self.wr_seasonal = Seasonal(points_type='ppr', position = 'WR', type = 'xgb', cur_season = cur_season)
 
 
     def run(self):
@@ -56,39 +71,39 @@ class ModelExecutor:
         rb_seasonal.cross_validate()
 
         
-        # qb_seasonal = self.qb_seasonal
-        # qb_seasonal.corr()
+        qb_seasonal = self.qb_seasonal
+        qb_seasonal.corr()
 
-        # # only outputting standard/game right now
-        # # rb_seasonal.set_features()
-        # qb_seasonal.train_model(qb_seasonal.model)
-        # qb_seasonal.test_model()
-        # qb_seasonal.cross_validate()
+        # only outputting standard/game right now
+        # rb_seasonal.set_features()
+        qb_seasonal.train_model(qb_seasonal.model)
+        qb_seasonal.test_model()
+        qb_seasonal.cross_validate()
 
-        # te_seasonal = self.te_seasonal
-        # te_seasonal.corr()
+        te_seasonal = self.te_seasonal
+        te_seasonal.corr()
 
-        # # only outputting standard/game right now
-        # te_seasonal.set_features()
-        # te_seasonal.train_model(te_seasonal.model)
-        # te_seasonal.test_model()
-        # te_seasonal.cross_validate()
+        # only outputting standard/game right now
+        te_seasonal.set_features()
+        te_seasonal.train_model(te_seasonal.model)
+        te_seasonal.test_model()
+        te_seasonal.cross_validate()
 
-        # wr_seasonal = self.wr_seasonal
-        # wr_seasonal.corr()
+        wr_seasonal = self.wr_seasonal
+        wr_seasonal.corr()
 
-        # # only outputting standard/game right now
-        # # wr_seasonal.set_features()
-        # wr_seasonal.train_model(wr_seasonal.model)
-        # wr_seasonal.test_model()
-        # wr_seasonal.cross_validate()
+        # only outputting standard/game right now
+        # wr_seasonal.set_features()
+        wr_seasonal.train_model(wr_seasonal.model)
+        wr_seasonal.test_model()
+        wr_seasonal.cross_validate()
 
 
 
         print(rb_seasonal)
-        # print(te_seasonal)
-        # print(wr_seasonal)
-        # print(qb_seasonal)
+        print(te_seasonal)
+        print(wr_seasonal)
+        print(qb_seasonal)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--current_season", type=int, default=nfl.get_current_season())

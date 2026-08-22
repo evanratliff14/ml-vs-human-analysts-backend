@@ -101,7 +101,11 @@ def fetch_data():
 
     total_rows = len(df)
     paginated_df = df.iloc[offset: offset + limit]
-    records = paginated_df.to_dict(orient="records")
+    # pandas NaN/Inf become the invalid JSON token NaN unless converted to None
+    paginated_df = paginated_df.replace([float("inf"), float("-inf")], pd.NA)
+    records = paginated_df.astype(object).where(pd.notna(paginated_df), None).to_dict(
+        orient="records"
+    )
 
     return jsonify({
         "data": records,
